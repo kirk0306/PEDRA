@@ -302,7 +302,7 @@ def connect_drone(ip_address='127.0.0.0', phase='infer', num_agents=1, client=[]
         name_agent = "drone" + str(agents)
         client.enableApiControl(True, name_agent)
         client.armDisarm(True, name_agent)
-        # time.sleep(1)
+        time.sleep(1)
         client.takeoffAsync(vehicle_name=name_agent)
         time.sleep(1)
         old_posit[name_agent] = client.simGetVehiclePose(vehicle_name=name_agent)

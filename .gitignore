@@ -7,3 +7,4 @@ models/
 unreal_envs/*/
 scratch.py
 
+.vscode/settings.json

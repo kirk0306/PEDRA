@@ -12,6 +12,7 @@ from aux_functions import *
 import os
 from util.transformations import euler_from_quaternion
 from configs.read_cfg import read_cfg, update_algorithm_cfg
+import util.commons.utils as U
 
 
 def DeepQLearning(cfg, env_process, env_folder):
@@ -151,8 +152,38 @@ def DeepQLearning(cfg, env_process, env_folder):
                         switch_env = True
                     else:
                         switch_env = False
+                    
+                    # TODO: Building a distance_matrix
+                    cfg_env_name = eval(cfg.env_name)
+                    cfg_orig_ip, cfg_level_name, cfg_crash_threshold = cfg_env_name()
+                    cfg_orig_ip = np.array(cfg_orig_ip)
+                    cfg_orig_ip_xy = cfg_orig_ip[...,:-1]
+                    
+                    a = []
+                    for i in range(len(name_agent_list)):
+                        position_all = client.simGetVehiclePose(vehicle_name=name_agent_list[i]).position
+                        b = np.array([position_all.x_val, position_all.y_val])
+                        a.append(b)
+                    p = np.array(a)
+                    np.set_printoptions(precision=3, suppress=True)
+                    phy_coord_xy = np.add(p * 100, cfg_orig_ip_xy)
+                    # NED to Unreal coordinates 
+                    # print(phy_coord_xy)
 
-                    for name_agent in name_agent_list:
+                    distance_matrix = U.get_distance_matrix(phy_coord_xy,
+                                                     torus=False, world_size=None, add_to_diagonal=-1)
+                    distance_matrix_skip_diag = U.skip_diag_strided(distance_matrix)
+                    test_rewards_close = np.where((distance_matrix_skip_diag >= 100) & (distance_matrix_skip_diag <= 200), 
+                                                np.ones_like(distance_matrix_skip_diag), np.zeros_like(distance_matrix_skip_diag))
+                    test_rewards_2close = np.where((distance_matrix_skip_diag >= 0) & (distance_matrix_skip_diag <= 70), 
+                                                np.ones_like(distance_matrix_skip_diag), np.zeros_like(distance_matrix_skip_diag))
+                    test_rewards = np.subtract(test_rewards_close, test_rewards_2close * 5) * 0.2
+                    test_rewards = test_rewards.sum(axis=1)
+                    test_rewards = list(test_rewards)                           
+                    print(distance_matrix)
+                    print(test_rewards)                                 
+
+                    for i_, name_agent in enumerate(name_agent_list):
 
                         start_time = time.time()
                         if switch_env:
@@ -172,6 +203,7 @@ def DeepQLearning(cfg, env_process, env_folder):
 
                             if times_switch[name_agent] < len(reset_array[name_agent]):
                                 reset_to_initial(level[name_agent], reset_array, client, vehicle_name=name_agent)
+                                time.sleep(0.1)
                             else:
                                 current_state[name_agent] = level_state[name_agent][level[name_agent]]
                                 posit1_old = level_posit[name_agent][level[name_agent]]
@@ -224,7 +256,7 @@ def DeepQLearning(cfg, env_process, env_folder):
                             reward, crash = agent[name_agent].reward_gen(new_depth1, action, crash_threshold, thresh,
                                                                          debug, cfg)
 
-                            ret[name_agent] = ret[name_agent] + reward
+                            ret[name_agent] = ret[name_agent] + reward + test_rewards[i_]
                             agent_state = agent[name_agent].GetAgentState()
 
                             if agent_state.has_collided or distance[name_agent] < 0.1:
@@ -339,7 +371,7 @@ def DeepQLearning(cfg, env_process, env_folder):
                                     last_crash[name_agent] = 0
 
                                     reset_to_initial(level[name_agent], reset_array, client, vehicle_name=name_agent)
-                                    # time.sleep(0.2)
+                                    time.sleep(0.2)
                                     current_state[name_agent] = agent[name_agent].get_state()
                                     old_posit[name_agent] = client.simGetVehiclePose(vehicle_name=name_agent)
                             else:
