@@ -10,10 +10,12 @@ import time
 import airsim
 import pygame
 from configs.read_cfg import read_cfg
+from unreal_envs.initial_positions import *
 import matplotlib.pyplot as plt
 from PIL import Image
 import cv2
 from skimage.util import random_noise
+import util.commons.utils as U
 
 
 def close_env(env_process):
@@ -426,6 +428,31 @@ def get_CustomImage(client, vehicle_name, camera_name):
 #         cc=1
 
 # return camera_image, first_frame, last_frame
+
+
+def GetDistanceMatrix(client, cfg, name_agent_list, source_to_be_found):
+    cfg_env_name = eval(cfg.env_name)
+    cfg_orig_ip, cfg_level_name, cfg_crash_threshold = cfg_env_name()
+    cfg_orig_ip = np.array(cfg_orig_ip)
+    cfg_orig_ip_xy = cfg_orig_ip[...,:-1]
+    source_to_be_found = np.array(source_to_be_found)
+    
+    a = []
+    for i in range(len(name_agent_list)):
+        position_all = client.simGetVehiclePose(vehicle_name=name_agent_list[i]).position
+        b = np.array([position_all.x_val, position_all.y_val])
+        a.append(b)
+    p = np.array(a)
+    np.set_printoptions(precision=3, suppress=True)
+    phy_coord_xy = np.add(p * 100, cfg_orig_ip_xy)
+    # TODO: add dim
+    
+    phy_coord_xy_add_source = np.vstack((phy_coord_xy, source_to_be_found))
+    distance_matrix = U.get_distance_matrix(phy_coord_xy_add_source,
+                                     torus=False, world_size=None, add_to_diagonal=-1)
+    # distance_matrix_skip_diag = U.skip_diag_strided(distance_matrix)
+        
+    return distance_matrix
 
 
 def blit_text(surface, text, pos, font, color=pygame.Color('black')):

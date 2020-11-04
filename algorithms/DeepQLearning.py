@@ -13,6 +13,7 @@ import os
 from util.transformations import euler_from_quaternion
 from configs.read_cfg import read_cfg, update_algorithm_cfg
 import util.commons.utils as U
+import networkx as nwx
 
 
 def DeepQLearning(cfg, env_process, env_folder):
@@ -153,35 +154,16 @@ def DeepQLearning(cfg, env_process, env_folder):
                     else:
                         switch_env = False
                     
-                    # TODO: Building a distance_matrix
-                    cfg_env_name = eval(cfg.env_name)
-                    cfg_orig_ip, cfg_level_name, cfg_crash_threshold = cfg_env_name()
-                    cfg_orig_ip = np.array(cfg_orig_ip)
-                    cfg_orig_ip_xy = cfg_orig_ip[...,:-1]
-                    
-                    a = []
-                    for i in range(len(name_agent_list)):
-                        position_all = client.simGetVehiclePose(vehicle_name=name_agent_list[i]).position
-                        b = np.array([position_all.x_val, position_all.y_val])
-                        a.append(b)
-                    p = np.array(a)
-                    np.set_printoptions(precision=3, suppress=True)
-                    phy_coord_xy = np.add(p * 100, cfg_orig_ip_xy)
-                    # NED to Unreal coordinates 
-                    # print(phy_coord_xy)
-
-                    distance_matrix = U.get_distance_matrix(phy_coord_xy,
-                                                     torus=False, world_size=None, add_to_diagonal=-1)
-                    distance_matrix_skip_diag = U.skip_diag_strided(distance_matrix)
-                    test_rewards_close = np.where((distance_matrix_skip_diag >= 100) & (distance_matrix_skip_diag <= 200), 
-                                                np.ones_like(distance_matrix_skip_diag), np.zeros_like(distance_matrix_skip_diag))
-                    test_rewards_2close = np.where((distance_matrix_skip_diag >= 0) & (distance_matrix_skip_diag <= 70), 
-                                                np.ones_like(distance_matrix_skip_diag), np.zeros_like(distance_matrix_skip_diag))
-                    test_rewards = np.subtract(test_rewards_close, test_rewards_2close * 5) * 0.2
-                    test_rewards = test_rewards.sum(axis=1)
-                    test_rewards = list(test_rewards)                           
+                    # TODO: Building a graph feature
+                    source_to_be_found = [6000., 6000.]
+                    nr_source = 1
+                    comm_radius = 8000
+                    obs_radius = comm_radius / 4
+                    obs_comm_matrix = obs_radius * np.ones([cfg.num_agents + nr_source, cfg.num_agents + nr_source])
+                    obs_comm_matrix[0:-1, 0:-1] = comm_radius
+                    distance_matrix = GetDistanceMatrix(client, cfg, name_agent_list, source_to_be_found)
+                    # sets = graph_feature()
                     print(distance_matrix)
-                    print(test_rewards)                                 
 
                     for i_, name_agent in enumerate(name_agent_list):
 
@@ -256,7 +238,7 @@ def DeepQLearning(cfg, env_process, env_folder):
                             reward, crash = agent[name_agent].reward_gen(new_depth1, action, crash_threshold, thresh,
                                                                          debug, cfg)
 
-                            ret[name_agent] = ret[name_agent] + reward + test_rewards[i_]
+                            ret[name_agent] = ret[name_agent] + reward #+ test_rewards[i_]
                             agent_state = agent[name_agent].GetAgentState()
 
                             if agent_state.has_collided or distance[name_agent] < 0.1:
@@ -484,3 +466,51 @@ def DeepQLearning(cfg, env_process, env_folder):
                 print(exc_obj)
                 automate = False
                 print('Hit r and then backspace to start from this point')
+
+def graph_feature():
+    adj_matrix = np.array(distance_matrix < obs_comm_matrix, dtype=float)
+    sets = U.dfs(adj_matrix, 2)
+
+    g = nwx.Graph()
+    for set_ in sets:
+        l_ = list(set_)
+        if cfg.num_agents in set_:
+            # points = self.nodes[set_, 0:2]
+            # dist_matrix = self.get_euclid_distances(points, matrix=True)
+
+            # determine distance and adjacency matrix of subset
+            dist_matrix = np.array([distance_matrix[x] for x in list(itertools.product(l_, l_))]).reshape(
+                    [len(l_), len(l_)])     
+            
+            obs_comm_matrix = np.array(
+                [obs_comm_matrix[x] for x in list(itertools.product(l_, l_))]).reshape(
+                [len(l_), len(l_)])                       
+            
+            adj_matrix_sub = np.array((0 <= dist_matrix) & (dist_matrix < obs_comm_matrix), dtype=float)
+            connection = np.where(adj_matrix_sub == 1)
+            edges = [[x[0], x[1]] for x in zip([l_[c] for c in connection[0]], [l_[c] for c in connection[1]])]
+
+            g.add_nodes_from(l_)
+            g.add_edges_from(edges)
+            for ind, e in enumerate(edges):
+                g[e[0]][e[1]]['weight'] = dist_matrix[connection[0][ind], connection[1][ind]]
+    
+    for i__ in range(cfg.num_agents):
+                            
+        try:
+            name_agent_list[i__].graph_feature = \
+                nwx.shortest_path_length(g, source=i__, target=cfg.num_agents, weight='weight')
+        except:
+            name_agent_list[i__].graph_feature = np.inf     
+
+    return sets
+    
+    # test_rewards_close = np.where((distance_matrix_skip_diag >= 100) & (distance_matrix_skip_diag <= 200), 
+    #                             np.ones_like(distance_matrix_skip_diag), np.zeros_like(distance_matrix_skip_diag))
+    # test_rewards_2close = np.where((distance_matrix_skip_diag >= 0) & (distance_matrix_skip_diag <= 70), 
+    #                             np.ones_like(distance_matrix_skip_diag), np.zeros_like(distance_matrix_skip_diag))
+    # test_rewards = np.subtract(test_rewards_close, test_rewards_2close * 5) * 0.2
+    # test_rewards = test_rewards.sum(axis=1)
+    # test_rewards = list(test_rewards)                           
+    # print(distance_matrix)
+    # print(test_rewards)                                 
