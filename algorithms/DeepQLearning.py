@@ -337,6 +337,7 @@ def DeepQLearning(cfg, env_process, env_folder):
                                     agent[name_agent].client, old_posit, initZ = connect_drone(
                                         ip_address=cfg.ip_address, phase=cfg.mode,
                                         num_agents=cfg.num_agents, client=client)
+                                    time.sleep(2)
                                 else:
 
                                     agent[name_agent].network_model.log_to_tensorboard(tag='Return', group=name_agent,
@@ -457,6 +458,7 @@ def DeepQLearning(cfg, env_process, env_folder):
                 client, old_posit, initZ = connect_drone(ip_address=cfg.ip_address, phase=cfg.mode,
                                                          num_agents=cfg.num_agents)
 
+                time.sleep(2)
                 agent[name_agent].client = client
             else:
                 print('------------- Error -------------')
