@@ -16,6 +16,8 @@ from PIL import Image
 import cv2
 from skimage.util import random_noise
 import util.commons.utils as U
+import networkx as nwx
+import itertools
 
 
 def close_env(env_process):
@@ -72,8 +74,8 @@ def start_environment(env_name):
     print_orderly('Environment', 80)
     env_folder = os.path.dirname(os.path.abspath(__file__)) + "/unreal_envs/" + env_name + "/"
     path = env_folder + env_name + ".exe"
-    env_process = []
-    # env_process = subprocess.Popen(path)
+    # env_process = []
+    env_process = subprocess.Popen(path)
     time.sleep(5)
     print("Successfully loaded environment: " + env_name)
 
@@ -636,3 +638,52 @@ def check_user_input(active, automate, agent, client, old_posit, initZ, fig_z, f
                 automate = automate ^ True
 
     return active, automate, algorithm_cfg, client
+
+
+def graph_feature(obs_comm_matrix, distance_matrix, name_agent_list, cfg):
+    adj_matrix = np.array(distance_matrix < obs_comm_matrix, dtype=float)
+    sets = U.dfs(adj_matrix, 2)
+
+    g = nwx.Graph()
+    for set_ in sets:
+        l_ = list(set_)
+        if cfg.num_agents in set_:
+            # points = self.nodes[set_, 0:2]
+            # dist_matrix = self.get_euclid_distances(points, matrix=True)
+
+            # determine distance and adjacency matrix of subset
+            dist_matrix = np.array([distance_matrix[x] for x in list(itertools.product(l_, l_))]).reshape(
+                    [len(l_), len(l_)])     
+            
+            obs_comm_matrix = np.array(
+                [obs_comm_matrix[x] for x in list(itertools.product(l_, l_))]).reshape(
+                [len(l_), len(l_)])                       
+            
+            adj_matrix_sub = np.array((0 <= dist_matrix) & (dist_matrix < obs_comm_matrix), dtype=float)
+            connection = np.where(adj_matrix_sub == 1)
+            edges = [[x[0], x[1]] for x in zip([l_[c] for c in connection[0]], [l_[c] for c in connection[1]])]
+
+            g.add_nodes_from(l_)
+            g.add_edges_from(edges)
+            for ind, e in enumerate(edges):
+                g[e[0]][e[1]]['weight'] = dist_matrix[connection[0][ind], connection[1][ind]]
+    graph_features = []
+    for i__ in range(cfg.num_agents):
+                            
+        try:
+            graph_features.append(nwx.shortest_path_length(g, source=i__, target=cfg.num_agents, weight='weight'))
+                
+        except:
+            graph_features.append(np.inf)     
+
+    return sets, graph_features
+    
+    # test_rewards_close = np.where((distance_matrix_skip_diag >= 100) & (distance_matrix_skip_diag <= 200), 
+    #                             np.ones_like(distance_matrix_skip_diag), np.zeros_like(distance_matrix_skip_diag))
+    # test_rewards_2close = np.where((distance_matrix_skip_diag >= 0) & (distance_matrix_skip_diag <= 70), 
+    #                             np.ones_like(distance_matrix_skip_diag), np.zeros_like(distance_matrix_skip_diag))
+    # test_rewards = np.subtract(test_rewards_close, test_rewards_2close * 5) * 0.2
+    # test_rewards = test_rewards.sum(axis=1)
+    # test_rewards = list(test_rewards)                           
+    # print(distance_matrix)
+    # print(test_rewards)
