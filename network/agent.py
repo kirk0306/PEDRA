@@ -115,15 +115,17 @@ class PedraAgent():
             tries = 0
             correct = False
             while not correct and tries < max_tries:
-                responses = self.client.simGetImages([airsim.ImageRequest(1, airsim.ImageType.DepthPlanner, True)],
-                                                    vehicle_name=self.vehicle_name)
+                tries += 1
+                responses = self.client.simGetImages(
+                    [airsim.ImageRequest(1, airsim.ImageType.DepthPlanner, True)],
+                    vehicle_name=self.vehicle_name)
                 img1d = np.fromstring(responses[0].image_data_uint8, dtype=np.uint8)
                 # AirSim bug: Sometimes it returns invalid depth map with a few 255 and all 0s
-                if np.max(img1d) == 255 and np.mean(img1d) < 0.05:
+                if len(responses[0].image_data_float)==1: # and np.mean(img1d) < 0.05:
                     correct = False
-                    print('get depth error')
+                    # print('get depth error')
                 else:
-                        correct = True  
+                    correct = True  
             depth = airsim.list_to_2d_float_array(responses[0].image_data_float, responses[0].width,
                                                   responses[0].height)
             thresh = 50

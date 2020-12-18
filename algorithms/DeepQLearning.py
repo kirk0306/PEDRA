@@ -154,10 +154,10 @@ def DeepQLearning(cfg, env_process, env_folder):
                         switch_env = False
                     
                     # TODO: Building a graph feature
-                    source_to_be_found = [1000., 1000.]
+                    source_to_be_found = [4000., 4000.]
                     nr_source = 1
-                    comm_radius = 2000
-                    obs_radius = comm_radius / 4
+                    comm_radius = 16000
+                    obs_radius = comm_radius / 2
                     obs_comm_matrix = obs_radius * np.ones([cfg.num_agents + nr_source, cfg.num_agents + nr_source])
                     obs_comm_matrix[0:-1, 0:-1] = comm_radius
                     distance_matrix = GetDistanceMatrix(client, cfg, name_agent_list, source_to_be_found)
