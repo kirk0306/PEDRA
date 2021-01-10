@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from util.transformations import euler_from_quaternion
 import importlib
 
-from aux_functions import get_CustomImage, get_MonocularImageRGB, get_StereoImageRGB
+from aux_functions import get_CustomImage, get_MonocularImageRGB, get_StereoImageRGB, GetDistanceMatrix, graph_feature
 
 
 class PedraAgent():
@@ -150,6 +150,34 @@ class PedraAgent():
 
         return state_rgb
 
+    def get_dist(self, cfg, name_agent_list, obs_comm_matrix, source_to_be_found):
+
+        camera_image = get_MonocularImageRGB(self.client, self.vehicle_name)
+        self.iter = self.iter + 1
+        state = cv2.resize(camera_image, (self.input_size, self.input_size), cv2.INTER_LINEAR)
+        state = cv2.normalize(state, state, 0, 1, cv2.NORM_MINMAX, cv2.CV_32F)
+        state_rgb = []
+        state_rgb.append(state[:, :, 0:3])
+        state_rgb = np.array(state_rgb)
+        state_rgb = state_rgb.astype('float32')
+        # print ('state_rgb: ', state_rgb.shape)
+
+        distance_matrix = GetDistanceMatrix(self.client, cfg, name_agent_list, source_to_be_found)
+        sets, gfs = graph_feature(obs_comm_matrix, distance_matrix, name_agent_list, cfg)
+        self_dist = np.array(gfs[int(self.vehicle_name[5])])  
+        where_are_nan = np.isnan(self_dist)
+        where_are_inf = np.isinf(self_dist)
+        self_dist[where_are_nan] = -1
+        self_dist[where_are_inf] = -1
+        self_dist = self_dist.astype(np.int32)
+        self_dist = np.ones(shape=(1, 1, self.input_size, 3), dtype=np.float32) * self_dist * 1e-6
+        self_dist = np.append(state_rgb[:, :self.input_size - 1, :, :], self_dist, axis = 1)
+        # self_dist = self_dist.astype('float32')
+        # print ('self_dist_shape: ', self_dist.shape)
+        # print ('self_dist: ', self_dist[:, self.input_size - 2:, :, :])
+
+        return self_dist
+
     def GetAgentState(self):
         return self.client.simGetCollisionInfo(vehicle_name=self.vehicle_name)
 
@@ -159,7 +187,7 @@ class PedraAgent():
 
     def avg_depth(self, depth_map1, thresh, debug, cfg):
         # Version 0.3 - NAN issue resolved
-        # Thresholded depth map to ignore objects too far and give them a constant value
+        # Thresholded depth map to ignore objects too far and give them a  value
         # Globally (not locally as in the version 0.1) Normalise the thresholded map between 0 and 1
         # Threshold depends on the environment nature (indoor/ outdoor)
         depth_map = depth_map1

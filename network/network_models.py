@@ -5,7 +5,7 @@
 import tensorflow as tf
 import numpy as np
 from network.loss_functions import huber_loss, mse_loss
-from network.network import C3F2, C3F2_REINFORCE_with_baseline, C3F2_ActorCriticShared
+from network.network import C3F2, C3F2_REINFORCE_with_baseline, C3F2_ActorCriticShared, C3F2_dist
 from numpy import linalg as LA
 
 
@@ -38,7 +38,8 @@ class initialize_network_DeepQLearning():
             self.actions = tf.placeholder(tf.int32, shape=[None], name='Actions')
 
             # self.model = AlexNetDuel(self.X, cfg.num_actions, cfg.train_fc)
-            self.model = C3F2(self.X, cfg.num_actions, cfg.train_fc)
+            # self.model = C3F2(self.X, cfg.num_actions, cfg.train_fc)
+            self.model = C3F2_dist(self.X, cfg.num_actions, cfg.train_fc)
 
             self.predict = self.model.output
             ind = tf.one_hot(self.actions, cfg.num_actions)

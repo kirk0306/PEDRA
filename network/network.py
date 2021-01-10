@@ -175,7 +175,11 @@ class C3F2_dist(object):
             train_fc6 = False
             train_fc7 = False
             train_fc8 = False
+        
+        self.last_row_pix = tf.slice(self.x, [0, 102, 0, 0], [1, 1, 1, 1], name='Dist')
+        self.to_be_inserted = tf.tile(self.last_row_pix, [1, 4, 4, 64])
 
+        print('to_be_inserted: ', self.to_be_inserted)
         self.conv1 = self.conv(self.x, k=7, out=96, s=4, p="VALID", trainable=train_conv)
         self.maxpool1 = tf.nn.max_pool(self.conv1, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding="VALID")
 
@@ -183,8 +187,11 @@ class C3F2_dist(object):
         self.maxpool2 = tf.nn.max_pool(self.conv2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="VALID")
 
         self.conv3 = self.conv(self.maxpool2, k=3, out=64, s=1, p="SAME", trainable=train_conv)
-
+        self.conv3 = tf.concat([self.conv3, self.to_be_inserted], 0)
+        print('conv3: ', self.conv3)
         self.flat = tf.contrib.layers.flatten(self.conv3)
+        print('flat: ', self.flat)
+        # self.flat2 = tf.concat([self.flat, self.y], 1)
 
         # TODO: adding a dist
         # local obs
