@@ -150,7 +150,7 @@ class PedraAgent():
 
         return state_rgb
 
-    def get_dist(self, cfg, name_agent_list, obs_comm_matrix, source_to_be_found):
+    def get_dist(self, cfg, name_agent_list, nr_pursuers, source_to_be_found, comm_radius):
 
         camera_image = get_MonocularImageRGB(self.client, self.vehicle_name)
         self.iter = self.iter + 1
@@ -160,23 +160,67 @@ class PedraAgent():
         state_rgb.append(state[:, :, 0:3])
         state_rgb = np.array(state_rgb)
         state_rgb = state_rgb.astype('float32')
-        # print ('state_rgb: ', state_rgb.shape)
+
+        # replace last low of image
+        nr_source = 1
+        self.nr_source = nr_source
+        self.dim_local_o = 1
+        self.dim_source_o = (self.nr_source, self.nr_source)
+        self.dim_rec_o = (25, 3)
+        self.comm_radius = comm_radius
+        obs_radius = self.comm_radius / 2
+        scale_cr = (self.comm_radius + obs_radius) / self.comm_radius
 
         distance_matrix = GetDistanceMatrix(self.client, cfg, name_agent_list, source_to_be_found)
-        sets, gfs = graph_feature(obs_comm_matrix, distance_matrix, name_agent_list, cfg)
-        self_dist = np.array(gfs[int(self.vehicle_name[5])])  
-        where_are_nan = np.isnan(self_dist)
-        where_are_inf = np.isinf(self_dist)
-        self_dist[where_are_nan] = -1
-        self_dist[where_are_inf] = -1
-        self_dist = self_dist.astype(np.int32)
-        self_dist = np.ones(shape=(1, 1, self.input_size, 3), dtype=np.float32) * self_dist * 1e-6
-        self_dist = np.append(state_rgb[:, :self.input_size - 1, :, :], self_dist, axis = 1)
-        # self_dist = self_dist.astype('float32')
-        # print ('self_dist_shape: ', self_dist.shape)
-        # print ('self_dist: ', self_dist[:, self.input_size - 2:, :, :])
+        obs_comm_matrix = obs_radius * np.ones([nr_pursuers + self.nr_source, nr_pursuers + self.nr_source])
+        obs_comm_matrix[0:-self.nr_source, 0:-self.nr_source] = self.comm_radius
 
-        return self_dist
+        source_dists = distance_matrix[int(self.vehicle_name[5])][-self.nr_source:]
+        pursuer_dists = distance_matrix[int(self.vehicle_name[5])][:-self.nr_source] # dis of other drones, for now source is 1
+        
+        # local obs
+        if source_dists < obs_radius:
+            dist_to_source = source_dists / obs_radius
+        else:
+            dist_to_source = 1.   
+        
+        see_source = 1 if dist_to_source < 1 else 0
+        self.see_source = see_source
+        
+        sets, gfs = graph_feature(obs_comm_matrix, distance_matrix, name_agent_list, cfg)
+
+        self.graph_feature = np.array(gfs[int(self.vehicle_name[5])])
+        shortest_path_to_source = self.graph_feature / (scale_cr * self.comm_radius)\
+                if self.graph_feature < (scale_cr * self.comm_radius) else 1.
+        local_obs = np.zeros(self.dim_local_o)
+
+        pursuers_in_range = (pursuer_dists < self.comm_radius) & (0 < pursuer_dists)
+        # print ('is there a neighbor:\n', pursuers_in_range)
+        local_obs[0] = shortest_path_to_source
+        source_obs = np.zeros(self.dim_source_o)
+        source_obs[:, 0] = dist_to_source
+
+        # neighbor obs
+        sum_obs = np.zeros(self.dim_rec_o)
+
+        nr_neighbors = np.sum(pursuers_in_range)
+        nr_agents = distance_matrix[int(self.vehicle_name[5]), :].size - self.nr_source
+        sum_obs[0:nr_neighbors, 0] = pursuer_dists[pursuers_in_range] / self.comm_radius
+        sum_obs[0:nr_neighbors, 1] = 1
+        sum_obs[0:nr_agents, 2] = 1
+
+        to_input_size = np.zeros(self.input_size - sum_obs.size - local_obs.size - source_obs.size) # make last low to input size
+        obs = np.hstack([sum_obs.flatten(), to_input_size.flatten(), local_obs.flatten(), source_obs.flatten()])
+        obs = np.expand_dims(np.expand_dims(obs, axis = 0), axis = 0)
+        obs = np.expand_dims(obs, axis = 3)
+        obs = np.broadcast_to(obs,(1, 1, self.input_size, 3))
+        # print ('obs shape:\n', obs.shape)
+        # print ('len of obs:\n', len(obs))
+
+        state_rgb = np.append(state_rgb[:, :self.input_size - 1, :, :], obs, axis = 1)
+        # print ('state_rgb: ', state_rgb[:, self.input_size - 2:, :, :])
+
+        return state_rgb
 
     def GetAgentState(self):
         return self.client.simGetCollisionInfo(vehicle_name=self.vehicle_name)

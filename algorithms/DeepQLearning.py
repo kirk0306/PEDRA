@@ -49,11 +49,8 @@ def DeepQLearning(cfg, env_process, env_folder):
     name_agent_list = []
     agent = {}
     source_to_be_found = [4000., 4000.]
-    nr_source = 1
     comm_radius = 16000
-    obs_radius = comm_radius / 2
-    obs_comm_matrix = obs_radius * np.ones([cfg.num_agents + nr_source, cfg.num_agents + nr_source])
-    obs_comm_matrix[0:-1, 0:-1] = comm_radius
+   
     # Replay Memory for RL
     if cfg.mode == 'train':
         ReplayMemory = {}
@@ -77,7 +74,7 @@ def DeepQLearning(cfg, env_process, env_folder):
                 ReplayMemory[name_agent] = Memory(algorithm_cfg.buffer_len)
                 target_agent[name_agent] = PedraAgent(algorithm_cfg, client, name='Target', vehicle_name=name_agent)
             current_state[name_agent] = agent[name_agent].get_state()
-            # current_state[name_agent] = agent[name_agent].get_dist(cfg, name_agent_list, obs_comm_matrix, source_to_be_found) 
+            # current_state[name_agent] = agent[name_agent].get_dist() 
 
     elif cfg.mode == 'infer':
         name_agent = 'drone0'
@@ -220,7 +217,7 @@ def DeepQLearning(cfg, env_process, env_folder):
                             agent[name_agent].take_action(action, algorithm_cfg.num_actions, Mode='static')
                             # time.sleep(0.05)
                             # new_state[name_agent] = agent[name_agent].get_state()
-                            new_state[name_agent] = agent[name_agent].get_dist(cfg, name_agent_list, obs_comm_matrix, source_to_be_found)
+                            new_state[name_agent] = agent[name_agent].get_dist(cfg, name_agent_list, cfg.num_agents, source_to_be_found, comm_radius)
                             new_depth1, thresh = agent[name_agent].get_CustomDepth(cfg)
 
                             # Get GPS information
@@ -231,7 +228,6 @@ def DeepQLearning(cfg, env_process, env_folder):
                             new_p = np.array([position.x_val, position.y_val])
 
                             # calculate distance
-                            # dist_this_drone = agent[name_agent].get_dist(cfg, name_agent_list, obs_comm_matrix, source_to_be_found)
                             # dist_this_drone = np.ones(shape=(1, 103, 103, 3), dtype=np.float32) * dist_this_drone
                             # test = agent[name_agent].network_model.I_want_dist(dist_this_drone)
                             # print('dist_this_drone: ', dist_this_drone)
@@ -359,7 +355,7 @@ def DeepQLearning(cfg, env_process, env_folder):
                                     reset_to_initial(level[name_agent], reset_array, client, vehicle_name=name_agent)
                                     time.sleep(0.2)
                                     # current_state[name_agent] = agent[name_agent].get_state()
-                                    current_state[name_agent] = agent[name_agent].get_dist(cfg, name_agent_list, obs_comm_matrix, source_to_be_found)
+                                    current_state[name_agent] = agent[name_agent].get_dist(cfg, name_agent_list, cfg.num_agents, source_to_be_found, comm_radius)
                                     old_posit[name_agent] = client.simGetVehiclePose(vehicle_name=name_agent)
                             else:
                                 current_state[name_agent] = new_state[name_agent]
@@ -435,7 +431,7 @@ def DeepQLearning(cfg, env_process, env_folder):
                         fig_z.canvas.flush_events()
 
                         # current_state[name_agent] = agent[name_agent].get_state()
-                        current_state[name_agent] = agent[name_agent].get_dist(cfg, name_agent_list, obs_comm_matrix, source_to_be_found)
+                        current_state[name_agent] = agent[name_agent].get_dist(cfg, name_agent_list, cfg.num_agents, source_to_be_found, comm_radius)
                         action, action_type, algorithm_cfg.epsilon, qvals = policy(1, current_state[name_agent], iter,
                                                                                    algorithm_cfg.epsilon_saturation,
                                                                                    'inference',
