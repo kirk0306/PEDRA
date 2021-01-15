@@ -692,13 +692,3 @@ def graph_feature(obs_comm_matrix, distance_matrix, name_agent_list, cfg):
             graph_features.append(np.inf)     
 
     return sets, graph_features
-    
-    # test_rewards_close = np.where((distance_matrix_skip_diag >= 100) & (distance_matrix_skip_diag <= 200), 
-    #                             np.ones_like(distance_matrix_skip_diag), np.zeros_like(distance_matrix_skip_diag))
-    # test_rewards_2close = np.where((distance_matrix_skip_diag >= 0) & (distance_matrix_skip_diag <= 70), 
-    #                             np.ones_like(distance_matrix_skip_diag), np.zeros_like(distance_matrix_skip_diag))
-    # test_rewards = np.subtract(test_rewards_close, test_rewards_2close * 5) * 0.2
-    # test_rewards = test_rewards.sum(axis=1)
-    # test_rewards = list(test_rewards)                           
-    # print(distance_matrix)
-    # print(test_rewards)

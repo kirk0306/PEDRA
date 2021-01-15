@@ -45,11 +45,12 @@ def DeepQLearning(cfg, env_process, env_folder):
     cfg, algorithm_cfg = save_network_path(cfg=cfg, algorithm_cfg=algorithm_cfg)
     current_state = {}
     new_state = {}
+    reward_dist = {}
     posit = {}
     name_agent_list = []
     agent = {}
     source_to_be_found = [4000., 4000.]
-    comm_radius = 16000
+    comm_radius = 8000
    
     # Replay Memory for RL
     if cfg.mode == 'train':
@@ -219,7 +220,8 @@ def DeepQLearning(cfg, env_process, env_folder):
                             # new_state[name_agent] = agent[name_agent].get_state()
                             new_state[name_agent] = agent[name_agent].get_dist(cfg, name_agent_list, cfg.num_agents, source_to_be_found, comm_radius)
                             new_depth1, thresh = agent[name_agent].get_CustomDepth(cfg)
-
+                            reward_dist[name_agent] = agent[name_agent].reward_dist()
+                            print ('reward_dist[name_agent]:\n', reward_dist[name_agent])
                             # Get GPS information
                             posit[name_agent] = client.simGetVehiclePose(vehicle_name=name_agent)
                             position = posit[name_agent].position
@@ -238,7 +240,7 @@ def DeepQLearning(cfg, env_process, env_folder):
                             reward, crash = agent[name_agent].reward_gen(new_depth1, action, crash_threshold, thresh,
                                                                          debug, cfg)
 
-                            ret[name_agent] = ret[name_agent] + reward #+ test_rewards[i_]
+                            ret[name_agent] = ret[name_agent] + reward + reward_dist[name_agent]
                             agent_state = agent[name_agent].GetAgentState()
 
                             if agent_state.has_collided or distance[name_agent] < 0.1:

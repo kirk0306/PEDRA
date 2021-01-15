@@ -168,26 +168,26 @@ class PedraAgent():
         self.dim_source_o = (self.nr_source, self.nr_source)
         self.dim_rec_o = (25, 3)
         self.comm_radius = comm_radius
-        obs_radius = self.comm_radius / 2
-        scale_cr = (self.comm_radius + obs_radius) / self.comm_radius
+        self.obs_radius = self.comm_radius / 2
+        scale_cr = (self.comm_radius + self.obs_radius) / self.comm_radius
 
-        distance_matrix = GetDistanceMatrix(self.client, cfg, name_agent_list, source_to_be_found)
-        obs_comm_matrix = obs_radius * np.ones([nr_pursuers + self.nr_source, nr_pursuers + self.nr_source])
+        self.distance_matrix = GetDistanceMatrix(self.client, cfg, name_agent_list, source_to_be_found)
+        obs_comm_matrix = self.obs_radius * np.ones([nr_pursuers + self.nr_source, nr_pursuers + self.nr_source])
         obs_comm_matrix[0:-self.nr_source, 0:-self.nr_source] = self.comm_radius
 
-        source_dists = distance_matrix[int(self.vehicle_name[5])][-self.nr_source:]
-        pursuer_dists = distance_matrix[int(self.vehicle_name[5])][:-self.nr_source] # dis of other drones, for now source is 1
+        source_dists = self.distance_matrix[int(self.vehicle_name[5])][-self.nr_source:]
+        pursuer_dists = self.distance_matrix[int(self.vehicle_name[5])][:-self.nr_source] # dis of other drones, for now source is 1
         
         # local obs
-        if source_dists < obs_radius:
-            dist_to_source = source_dists / obs_radius
+        if source_dists < self.obs_radius:
+            dist_to_source = source_dists / self.obs_radius
         else:
             dist_to_source = 1.   
         
         see_source = 1 if dist_to_source < 1 else 0
         self.see_source = see_source
         
-        sets, gfs = graph_feature(obs_comm_matrix, distance_matrix, name_agent_list, cfg)
+        sets, gfs = graph_feature(obs_comm_matrix, self.distance_matrix, name_agent_list, cfg)
 
         self.graph_feature = np.array(gfs[int(self.vehicle_name[5])])
         shortest_path_to_source = self.graph_feature / (scale_cr * self.comm_radius)\
@@ -204,10 +204,10 @@ class PedraAgent():
         sum_obs = np.zeros(self.dim_rec_o)
 
         nr_neighbors = np.sum(pursuers_in_range)
-        nr_agents = distance_matrix[int(self.vehicle_name[5]), :].size - self.nr_source
+        self.nr_agents = self.distance_matrix[int(self.vehicle_name[5]), :].size - self.nr_source
         sum_obs[0:nr_neighbors, 0] = pursuer_dists[pursuers_in_range] / self.comm_radius
         sum_obs[0:nr_neighbors, 1] = 1
-        sum_obs[0:nr_agents, 2] = 1
+        sum_obs[0:self.nr_agents, 2] = 1
 
         to_input_size = np.zeros(self.input_size - sum_obs.size - local_obs.size - source_obs.size) # make last low to input size
         obs = np.hstack([sum_obs.flatten(), to_input_size.flatten(), local_obs.flatten(), source_obs.flatten()])
@@ -314,6 +314,23 @@ class PedraAgent():
 
         return reward, done
 
+    def reward_dist(self):
+        dist_to_others = self.distance_matrix[:-self.nr_source, :-self.nr_source]
+        dist_to_source = self.distance_matrix[:-self.nr_source, -self.nr_source:]
+        # print ('self.distance_matrix:\n', self.distance_matrix)
+        rewards_close = np.where((dist_to_others >= 1000) & (dist_to_others <= 2000), 
+                                 np.ones_like(dist_to_others), np.zeros_like(dist_to_others))
+        rewards_2close = np.where((dist_to_others >= 0) & (dist_to_others <= 700), 
+                                 np.ones_like(dist_to_others), np.zeros_like(dist_to_others))
+        rewards_dist = np.subtract(rewards_close, rewards_2close * 5) * 0.2
+        rewards_dist = rewards_dist.sum(axis=1)[int(self.vehicle_name[5])]
+
+        r = -np.minimum(np.min(dist_to_source), self.obs_radius) / self.obs_radius * 0.2 + rewards_dist
+        # r = np.ones((self.nr_agents,)) * r
+        # print ('rewards_dist:\n', rewards_dist)
+        # print ('r:\n', r)
+
+        return r
     ###########################################################################
     # Network related modules
     ###########################################################################
