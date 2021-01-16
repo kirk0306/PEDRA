@@ -50,7 +50,7 @@ def DeepQLearning(cfg, env_process, env_folder):
     name_agent_list = []
     agent = {}
     source_to_be_found = [4000., 4000.]
-    comm_radius = 8000
+    comm_radius = 16000
    
     # Replay Memory for RL
     if cfg.mode == 'train':

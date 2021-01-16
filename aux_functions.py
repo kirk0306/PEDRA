@@ -312,13 +312,11 @@ def policy_REINFORCE(curr_state, agent):
     action_type = 'Prob'
     return action[0], action_type
 
-
 def policy_PPO(curr_state, agent):
     action, p_a = agent.network_model.action_selection_with_prob(curr_state)
     action_type = 'Prob'
     return action[0], p_a, action_type
 
-    
 def policy(epsilon, curr_state, iter, b, epsilon_model, wait_before_train, num_actions, agent):
     qvals = []
 
@@ -404,27 +402,12 @@ def get_SystemStats(process, NVIDIA_GPU):
 
 
 def get_MonocularImageRGB(client, vehicle_name):
-    # responses1 = client.simGetImages([
-    #     airsim.ImageRequest('front_center', airsim.ImageType.Scene, False,
-    #                         False)], vehicle_name=vehicle_name)  # scene vision image in uncompressed RGBA array
-
-    # response = responses1[0]
-    max_tries = 5
-    tries = 0
-    correct = False
-    while not correct and tries < max_tries:
-        tries += 1
-        responses1 = client.simGetImages([
+    responses1 = client.simGetImages([
         airsim.ImageRequest('front_center', airsim.ImageType.Scene, False,
                             False)], vehicle_name=vehicle_name)  # scene vision image in uncompressed RGBA array
-        response = responses1[0]
-        img1d = np.fromstring(response.image_data_uint8, dtype=np.uint8)  # get numpy array        
-        if len(response.image_data_uint8) == 1:
-            correct = False
-            print('get depth error')
-        else:
-            correct = True    
-    # img1d = np.fromstring(response.image_data_uint8, dtype=np.uint8)  # get numpy array
+
+    response = responses1[0]
+    img1d = np.fromstring(response.image_data_uint8, dtype=np.uint8)  # get numpy array
     img_rgba = img1d.reshape(response.height, response.width, 3)
     img = Image.fromarray(img_rgba)
     img_rgb = img.convert('RGB')
