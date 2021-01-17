@@ -194,8 +194,8 @@ class PedraAgent():
                 if self.graph_feature < (scale_cr * self.comm_radius) else 1.
         local_obs = np.zeros(self.dim_local_o)
 
-        pursuers_in_range = (pursuer_dists < self.comm_radius) & (0 < pursuer_dists)
-        # print ('is there a neighbor:\n', pursuers_in_range)
+        self.pursuers_in_range = (pursuer_dists < self.comm_radius) & (0 < pursuer_dists)
+        # print ('is there a neighbor:\n', self.pursuers_in_range)
         local_obs[0] = shortest_path_to_source
         source_obs = np.zeros(self.dim_source_o)
         source_obs[:, 0] = dist_to_source
@@ -203,9 +203,9 @@ class PedraAgent():
         # neighbor obs
         sum_obs = np.zeros(self.dim_rec_o)
 
-        nr_neighbors = np.sum(pursuers_in_range)
+        nr_neighbors = np.sum(self.pursuers_in_range)
         self.nr_agents = self.distance_matrix[int(self.vehicle_name[5]), :].size - self.nr_source
-        sum_obs[0:nr_neighbors, 0] = pursuer_dists[pursuers_in_range] / self.comm_radius
+        sum_obs[0:nr_neighbors, 0] = pursuer_dists[self.pursuers_in_range] / self.comm_radius
         sum_obs[0:nr_neighbors, 1] = 1
         sum_obs[0:self.nr_agents, 2] = 1
 
@@ -214,11 +214,8 @@ class PedraAgent():
         obs = np.expand_dims(np.expand_dims(obs, axis = 0), axis = 0)
         obs = np.expand_dims(obs, axis = 3)
         obs = np.broadcast_to(obs,(1, 1, self.input_size, 3))
-        # print ('obs shape:\n', obs.shape)
-        # print ('len of obs:\n', len(obs))
 
         state_rgb = np.append(state_rgb[:, :self.input_size - 1, :, :], obs, axis = 1)
-        # print ('state_rgb: ', state_rgb[:, self.input_size - 2:, :, :])
 
         return state_rgb
 
@@ -316,8 +313,8 @@ class PedraAgent():
 
     def reward_dist(self):
         dist_to_others = self.distance_matrix[:-self.nr_source, :-self.nr_source]
-        dist_to_source = self.distance_matrix[:-self.nr_source, -self.nr_source:]
-        # print ('self.distance_matrix:\n', self.distance_matrix)
+        dist_to_source = self.distance_matrix[:-self.nr_source, -self.nr_source:][self.pursuers_in_range]
+        # print ('dist_to_source:\n', dist_to_source)
         rewards_close = np.where((dist_to_others >= 1000) & (dist_to_others <= 2000), 
                                  np.ones_like(dist_to_others), np.zeros_like(dist_to_others))
         rewards_2close = np.where((dist_to_others >= 0) & (dist_to_others <= 700), 
@@ -325,10 +322,7 @@ class PedraAgent():
         rewards_dist = np.subtract(rewards_close, rewards_2close * 5) * 0.2
         rewards_dist = rewards_dist.sum(axis=1)[int(self.vehicle_name[5])]
 
-        r = -np.minimum(np.min(dist_to_source), self.obs_radius) / self.obs_radius * 0.2 + rewards_dist
-        # r = np.ones((self.nr_agents,)) * r
-        # print ('rewards_dist:\n', rewards_dist)
-        # print ('r:\n', r)
+        r = -np.minimum(np.min(dist_to_source), self.obs_radius) / self.obs_radius * 0.4 + rewards_dist
 
         return r
     ###########################################################################

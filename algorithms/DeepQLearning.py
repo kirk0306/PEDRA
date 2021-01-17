@@ -49,7 +49,7 @@ def DeepQLearning(cfg, env_process, env_folder):
     posit = {}
     name_agent_list = []
     agent = {}
-    source_to_be_found = [4000., 4000.]
+    source_to_be_found = [16888, 15778]
     comm_radius = 16000
    
     # Replay Memory for RL
