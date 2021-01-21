@@ -168,8 +168,8 @@ class C3F2_dist(object):
             train_fc6 = False
         elif train_type == 'last3':
             train_conv = False
-            train_fc6 = True
-            train_fc7 = True
+            train_fc6 = False
+            train_fc7 = False
         elif train_type == 'last2':
             train_conv = False
             train_fc6 = False

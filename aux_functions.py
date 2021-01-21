@@ -111,6 +111,8 @@ def initialize_infer(env_cfg, client, env_folder):
 
     return p_z, f_z, fig_z, ax_z, line_z, fig_nav, ax_nav, nav
 
+def update_infer_swarm(x, y):
+    plt.plot(x, y, 'b*', linewidth=20)
 
 def translate_action(action, num_actions):
     # action_word = ['Forward', 'Right', 'Left', 'Sharp Right', 'Sharp Left']
@@ -330,7 +332,7 @@ def policy(epsilon, curr_state, iter, b, epsilon_model, wait_before_train, num_a
         epsilon = 1 - math.exp(-2 / (b - wait_before_train) * (iter - wait_before_train))
         if epsilon > epsilon_ceil:
             epsilon = epsilon_ceil
-
+    
     if random.random() > epsilon:
         sss = curr_state.shape
         action = np.random.randint(0, num_actions, size=sss[0], dtype=np.int32)
@@ -544,6 +546,8 @@ def pygame_connect(phase):
         img_path = 'images/train_keys.png'
     elif phase == 'infer':
         img_path = 'images/infer_keys.png'
+    elif phase == 'infer swarm':
+        img_path = 'images/infer_keys.png'    
     img = pygame.image.load(img_path)
 
     screen = pygame.display.set_mode(img.get_rect().size)

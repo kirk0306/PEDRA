@@ -175,8 +175,8 @@ class PedraAgent():
         obs_comm_matrix = self.obs_radius * np.ones([nr_pursuers + self.nr_source, nr_pursuers + self.nr_source])
         obs_comm_matrix[0:-self.nr_source, 0:-self.nr_source] = self.comm_radius
 
-        source_dists = self.distance_matrix[int(self.vehicle_name[5])][-self.nr_source:]
-        pursuer_dists = self.distance_matrix[int(self.vehicle_name[5])][:-self.nr_source] # dis of other drones, for now source is 1
+        source_dists = self.distance_matrix[int(self.vehicle_name[5:])][-self.nr_source:]
+        pursuer_dists = self.distance_matrix[int(self.vehicle_name[5:])][:-self.nr_source] # dis of other drones, for now source is 1
         
         # local obs
         if source_dists < self.obs_radius:
@@ -189,7 +189,7 @@ class PedraAgent():
         
         sets, gfs = graph_feature(obs_comm_matrix, self.distance_matrix, name_agent_list, cfg)
 
-        self.graph_feature = np.array(gfs[int(self.vehicle_name[5])])
+        self.graph_feature = np.array(gfs[int(self.vehicle_name[5:])])
         shortest_path_to_source = self.graph_feature / (scale_cr * self.comm_radius)\
                 if self.graph_feature < (scale_cr * self.comm_radius) else 1.
         local_obs = np.zeros(self.dim_local_o)
@@ -204,7 +204,7 @@ class PedraAgent():
         sum_obs = np.zeros(self.dim_rec_o)
 
         nr_neighbors = np.sum(self.pursuers_in_range)
-        self.nr_agents = self.distance_matrix[int(self.vehicle_name[5]), :].size - self.nr_source
+        self.nr_agents = self.distance_matrix[int(self.vehicle_name[5:]), :].size - self.nr_source
         sum_obs[0:nr_neighbors, 0] = pursuer_dists[self.pursuers_in_range] / self.comm_radius
         sum_obs[0:nr_neighbors, 1] = 1
         sum_obs[0:self.nr_agents, 2] = 1
@@ -320,7 +320,7 @@ class PedraAgent():
         rewards_2close = np.where((dist_to_others >= 0) & (dist_to_others <= 700), 
                                  np.ones_like(dist_to_others), np.zeros_like(dist_to_others))
         rewards_dist = np.subtract(rewards_close, rewards_2close * 5) * 0.2
-        rewards_dist = rewards_dist.sum(axis=1)[int(self.vehicle_name[5])]
+        rewards_dist = rewards_dist.sum(axis=1)[int(self.vehicle_name[5:])]
 
         r = -np.minimum(np.min(dist_to_source), self.obs_radius) / self.obs_radius * 0.4 + rewards_dist
 

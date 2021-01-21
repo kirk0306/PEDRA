@@ -95,6 +95,40 @@ def DeepQLearning(cfg, env_process, env_folder):
         reset_to_initial(0, reset_array, client, vehicle_name=name_agent)
         old_posit[name_agent] = client.simGetVehiclePose(vehicle_name=name_agent)
 
+    elif cfg.mode == 'infer swarm':
+        env_cfg = read_cfg(config_filename=env_folder + 'config.cfg')
+        nav_x = {}
+        nav_y = {}
+        ax_nvs = {}
+        altitude = {}
+        p_z, f_z, fig_z, ax_z, line_z, fig_nav, ax_nav, nav = initialize_infer(env_cfg=env_cfg, client=client,
+                                                                               env_folder=env_folder)
+        nav_text = ax_nav.text(0, 0, '')
+        name = env_cfg.env_name+'()'
+        orig_ip, levels, crash_threshold = eval(name)
+        player_x_env = orig_ip[0][0]
+        player_y_env = orig_ip[0][1]
+        init_poses = []                                    
+        for ip in orig_ip:
+            x_unreal = (ip[0] - player_x_env) / 100
+            y_unreal = (ip[1] - player_y_env) / 100
+            ix = x_unreal * env_cfg.alpha + env_cfg.o_x
+            iy = y_unreal * env_cfg.alpha + env_cfg.o_y
+            init_poses.append((ix,iy))
+            update_infer_swarm(ix, iy)
+
+        for drone in range(cfg.num_agents):           
+            name_agent = "drone" + str(drone)
+            name_agent_list.append(name_agent)
+            print_orderly(name_agent, 40)
+            nav_x[name_agent] = []
+            nav_y[name_agent] = []
+            altitude[name_agent] = []
+            ax_nvs[name_agent] = ax_nav.plot(init_poses[drone][0],init_poses[drone][1])[0]
+            agent[name_agent] = PedraAgent(algorithm_cfg, client, name='DQN', vehicle_name=name_agent)
+            reset_to_initial(0, reset_array, client, vehicle_name=name_agent)
+            old_posit[name_agent] = client.simGetVehiclePose(vehicle_name=name_agent)
+
     # Initialize variables
     iter = 1
     # num_collisions = 0
@@ -157,9 +191,6 @@ def DeepQLearning(cfg, env_process, env_folder):
                         switch_env = True
                     else:
                         switch_env = False
-                    
-                    # TODO: Building a graph feature
-
                     
                     for i_, name_agent in enumerate(name_agent_list):
 
@@ -228,11 +259,6 @@ def DeepQLearning(cfg, env_process, env_folder):
                             old_p = np.array(
                                 [old_posit[name_agent].position.x_val, old_posit[name_agent].position.y_val])
                             new_p = np.array([position.x_val, position.y_val])
-
-                            # calculate distance
-                            # dist_this_drone = np.ones(shape=(1, 103, 103, 3), dtype=np.float32) * dist_this_drone
-                            # test = agent[name_agent].network_model.I_want_dist(dist_this_drone)
-                            # print('dist_this_drone: ', dist_this_drone)
 
                             distance[name_agent] = distance[name_agent] + np.linalg.norm(new_p - old_p)
                             old_posit[name_agent] = posit[name_agent]
@@ -386,6 +412,51 @@ def DeepQLearning(cfg, env_process, env_folder):
                     #     communicate_across_agents(target_agent, name_agent_list, algorithm_cfg)
 
                     iter += 1
+                
+                elif cfg.mode == 'infer swarm':
+                    quat = {}
+                    yaw = {}
+                    x_val = {}
+                    y_val = {}
+                    z_val = {}
+                    for i_, name_agent in enumerate(name_agent_list):
+                        agent_state = agent[name_agent].GetAgentState()
+                        if agent_state.has_collided: # or distance[name_agent] < 0.1:
+                            print('Drone collided')
+                            print("Total distance traveled: ", np.round(distance[name_agent], 2))
+                            # if nav_x[name_agent]:  # Nav_x is empty if the drone collides in first iteration
+                            #     ax_nav.plot(nav_x[name_agent].pop(), nav_y[name_agent].pop(), 'r*', linewidth=20)
+                        else:
+                            posit[name_agent] = client.simGetVehiclePose(vehicle_name=name_agent)
+                            distance[name_agent] = distance[name_agent] + np.linalg.norm(np.array(
+                                [old_posit[name_agent].position.x_val - posit[name_agent].position.x_val,
+                                 old_posit[name_agent].position.y_val - posit[name_agent].position.y_val]))
+                            altitude[name_agent].append(-posit[name_agent].position.z_val - f_z)  
+
+                            quat[name_agent] = (posit[name_agent].orientation.w_val, posit[name_agent].orientation.x_val,
+                                    posit[name_agent].orientation.y_val, posit[name_agent].orientation.z_val)
+                            yaw[name_agent] = euler_from_quaternion(quat[name_agent])[2]
+
+                            x_val[name_agent] = posit[name_agent].position.x_val
+                            y_val[name_agent] = posit[name_agent].position.y_val
+                            z_val[name_agent] = posit[name_agent].position.z_val  
+                            
+                            nav_x[name_agent].append(env_cfg.alpha * x_val[name_agent] + init_poses[i_][0])
+                            nav_y[name_agent].append(env_cfg.alpha * y_val[name_agent] + init_poses[i_][1])
+                            ax_nvs[name_agent].set_data(nav_x[name_agent], nav_y[name_agent])
+
+                            fig_z.canvas.draw()
+                            fig_z.canvas.flush_events()
+                            current_state[name_agent] = agent[name_agent].get_dist(cfg, name_agent_list, cfg.num_agents, source_to_be_found, comm_radius)
+                            action, action_type, algorithm_cfg.epsilon, qvals = policy(1, current_state[name_agent], iter,
+                                                                                       algorithm_cfg.epsilon_saturation,
+                                                                                       'inference',
+                                                                                       algorithm_cfg.wait_before_train,
+                                                                                       algorithm_cfg.num_actions,
+                                                                                       agent[name_agent])
+                            action_word = translate_action(action, algorithm_cfg.num_actions)
+                            # Take continuous action
+                            agent[name_agent].take_action(action, algorithm_cfg.num_actions, Mode='static')
 
                 elif cfg.mode == 'infer':
                     # Inference phase
@@ -432,8 +503,8 @@ def DeepQLearning(cfg, env_process, env_folder):
                         fig_z.canvas.draw()
                         fig_z.canvas.flush_events()
 
-                        # current_state[name_agent] = agent[name_agent].get_state()
-                        current_state[name_agent] = agent[name_agent].get_dist(cfg, name_agent_list, cfg.num_agents, source_to_be_found, comm_radius)
+                        current_state[name_agent] = agent[name_agent].get_state()
+                        # current_state[name_agent] = agent[name_agent].get_dist(cfg, name_agent_list, cfg.num_agents, source_to_be_found, comm_radius)
                         action, action_type, algorithm_cfg.epsilon, qvals = policy(1, current_state[name_agent], iter,
                                                                                    algorithm_cfg.epsilon_saturation,
                                                                                    'inference',
