@@ -105,6 +105,8 @@ def DeepQLearning(cfg, env_process, env_folder):
                                                                                env_folder=env_folder)
         nav_text = ax_nav.text(0, 0, '')
         name = env_cfg.env_name+'()'
+        update_infer_swarm(474, 337,
+                           style = 'r*')
         orig_ip, levels, crash_threshold = eval(name)
         player_x_env = orig_ip[0][0]
         player_y_env = orig_ip[0][1]
@@ -115,7 +117,7 @@ def DeepQLearning(cfg, env_process, env_folder):
             ix = x_unreal * env_cfg.alpha + env_cfg.o_x
             iy = y_unreal * env_cfg.alpha + env_cfg.o_y
             init_poses.append((ix,iy))
-            update_infer_swarm(ix, iy)
+            update_infer_swarm(ix, iy, style = 'b*')
 
         for drone in range(cfg.num_agents):           
             name_agent = "drone" + str(drone)
@@ -422,7 +424,7 @@ def DeepQLearning(cfg, env_process, env_folder):
                     for i_, name_agent in enumerate(name_agent_list):
                         agent_state = agent[name_agent].GetAgentState()
                         if agent_state.has_collided: # or distance[name_agent] < 0.1:
-                            print('Drone collided')
+                            print('Drone collided', name_agent)
                             print("Total distance traveled: ", np.round(distance[name_agent], 2))
                             # if nav_x[name_agent]:  # Nav_x is empty if the drone collides in first iteration
                             #     ax_nav.plot(nav_x[name_agent].pop(), nav_y[name_agent].pop(), 'r*', linewidth=20)
@@ -447,6 +449,7 @@ def DeepQLearning(cfg, env_process, env_folder):
 
                             fig_z.canvas.draw()
                             fig_z.canvas.flush_events()
+                            # current_state[name_agent] = agent[name_agent].get_state()
                             current_state[name_agent] = agent[name_agent].get_dist(cfg, name_agent_list, cfg.num_agents, source_to_be_found, comm_radius)
                             action, action_type, algorithm_cfg.epsilon, qvals = policy(1, current_state[name_agent], iter,
                                                                                        algorithm_cfg.epsilon_saturation,
@@ -456,7 +459,14 @@ def DeepQLearning(cfg, env_process, env_folder):
                                                                                        agent[name_agent])
                             action_word = translate_action(action, algorithm_cfg.num_actions)
                             # Take continuous action
+                            # agent_seeing = agent[name_agent].GetAgentSeeing()
+                            # agent_seeing = agent[name_agent].get_seeing(cfg, name_agent_list, cfg.num_agents, source_to_be_found, comm_radius)
+                            # if agent_seeing == 1:
+                                # agent[name_agent].take_action(action, algorithm_cfg.num_actions, Mode='stop')
+                                # print('source found by: ', name_agent)
+                            # else:
                             agent[name_agent].take_action(action, algorithm_cfg.num_actions, Mode='static')
+                            old_posit[name_agent] = posit[name_agent]
 
                 elif cfg.mode == 'infer':
                     # Inference phase

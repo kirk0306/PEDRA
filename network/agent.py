@@ -76,6 +76,21 @@ class PedraAgent():
             self.client.simSetVehiclePose(
                 airsim.Pose(airsim.Vector3r(x, y, z), airsim.to_quaternion(0, 0, alpha + psi)),
                 ignore_collison=ignore_collision, vehicle_name=self.vehicle_name)
+        elif Mode == 'stop':
+            r = 0.0
+            noise_theta = (fov_v / sqrt_num_actions) / 6
+            noise_psi = (fov_h / sqrt_num_actions) / 6
+
+            psi = psi + random.uniform(-1, 1) * noise_psi
+            theta = theta + random.uniform(-1, 1) * noise_theta
+
+            x = pos.x_val + r * np.cos(alpha + psi)
+            y = pos.y_val + r * np.sin(alpha + psi)
+            z = pos.z_val + r * np.sin(theta)  # -ve because Unreal has -ve z direction going upwards
+
+            self.client.simSetVehiclePose(
+                airsim.Pose(airsim.Vector3r(x, y, z), airsim.to_quaternion(0, 0, alpha + psi)),
+                ignore_collison=ignore_collision, vehicle_name=self.vehicle_name)
         elif Mode == 'dynamic':
             r_infer = 0.4
             vx = r_infer * np.cos(alpha + psi)
@@ -184,7 +199,7 @@ class PedraAgent():
         else:
             dist_to_source = 1.   
         
-        see_source = 1 if dist_to_source < 1 else 0
+        see_source = 1 if dist_to_source < 0.1 else 0
         self.see_source = see_source
         
         sets, gfs = graph_feature(obs_comm_matrix, self.distance_matrix, name_agent_list, cfg)
@@ -196,16 +211,19 @@ class PedraAgent():
 
         self.pursuers_in_range = (pursuer_dists < self.comm_radius) & (0 < pursuer_dists)
         # print ('is there a neighbor:\n', self.pursuers_in_range)
-        local_obs[0] = shortest_path_to_source
+        # local_obs[0] = shortest_path_to_source
+        local_obs[0] = 1
         source_obs = np.zeros(self.dim_source_o)
-        source_obs[:, 0] = dist_to_source
+        # source_obs[:, 0] = dist_to_source
+        source_obs[:, 0] = 1
 
         # neighbor obs
         sum_obs = np.zeros(self.dim_rec_o)
 
         nr_neighbors = np.sum(self.pursuers_in_range)
         self.nr_agents = self.distance_matrix[int(self.vehicle_name[5:]), :].size - self.nr_source
-        sum_obs[0:nr_neighbors, 0] = pursuer_dists[self.pursuers_in_range] / self.comm_radius
+        # sum_obs[0:nr_neighbors, 0] = pursuer_dists[self.pursuers_in_range] / self.comm_radius
+        sum_obs[0:nr_neighbors, 0] = 1
         sum_obs[0:nr_neighbors, 1] = 1
         sum_obs[0:self.nr_agents, 2] = 1
 
@@ -218,6 +236,9 @@ class PedraAgent():
         state_rgb = np.append(state_rgb[:, :self.input_size - 1, :, :], obs, axis = 1)
 
         return state_rgb
+
+    def GetAgentSeeing(self):
+        return self.see_source   
 
     def GetAgentState(self):
         return self.client.simGetCollisionInfo(vehicle_name=self.vehicle_name)
@@ -322,7 +343,7 @@ class PedraAgent():
         rewards_dist = np.subtract(rewards_close, rewards_2close * 5) * 0.2
         rewards_dist = rewards_dist.sum(axis=1)[int(self.vehicle_name[5:])]
 
-        r = -np.minimum(np.min(dist_to_source), self.obs_radius) / self.obs_radius * 0.4 + rewards_dist
+        r = (-np.minimum(np.min(dist_to_source), self.obs_radius) / self.obs_radius + 1) * 10 + rewards_dist
 
         return r
     ###########################################################################

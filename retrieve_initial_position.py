@@ -48,9 +48,9 @@ def onclick(event):
 
     if len(coords) > 1:
         text.remove()
-    text_str = 'Image coordinates \nx: ' + str(np.round(ix,2)) + '\ny:' + str(np.round(iy,2))
-    text_str += '\n\nUnreal coordinates \nx: ' + str(np.round(x_unreal, 2)) + '\ny:' + str(np.round(y_unreal, 2))
-    text_str += '\n\nEnvironment coordinates \nx: ' + str(np.round(x_env, 2)) + '\ny:' + str(np.round(y_env, 2))
+    text_str = 'Image coordinates \nx: ' + str(np.round(ix,2)) + '\ny: ' + str(np.round(iy,2))
+    text_str += '\n\nUnreal coordinates \nx: ' + str(np.round(x_unreal, 2)) + '\ny: ' + str(np.round(y_unreal, 2))
+    text_str += '\n\nEnvironment coordinates \nx: ' + str(np.round(x_env, 2)) + '\ny: ' + str(np.round(y_env, 2))
     print(text_str)
     print('-'*50)
     text = ax.text(25, 275, text_str, style='italic',

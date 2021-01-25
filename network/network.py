@@ -157,7 +157,7 @@ class C3F2_dist(object):
         # weights_path = 'models/imagenet.npy'
         # weights = np.load(open(weights_path, "rb"), encoding="latin1").item()
         # print('Loading imagenet weights for the conv layers and random for fc layers')
-        train_conv = True
+        train_conv = False
         train_fc6 = True
         train_fc7 = True
         train_fc8 = True

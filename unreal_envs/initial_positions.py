@@ -146,7 +146,7 @@ def outdoor_forest():
         [21192, 17514, 0],
         [10000, 17000, 90]
     ]
-    level_name = ['Forest1', 'Forest2', 'Forest3', 'Forest4', 'Forest5', 'Forest6', 'Forest7', 'Forest8']
+    level_name = ['Forest1', 'Forest2', 'Forest3', 'Forest4', 'Forest5', 'Forest6', 'Forest7', 'Forest8'] #, 'Forest9', 'Forest10', 'Forest11', 'Forest12', 'Forest13', 'Forest14', 'Forest15', 'Forest16'
     crash_threshold = 0.07
     return orig_ip, level_name, crash_threshold
 

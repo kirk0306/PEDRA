@@ -111,8 +111,8 @@ def initialize_infer(env_cfg, client, env_folder):
 
     return p_z, f_z, fig_z, ax_z, line_z, fig_nav, ax_nav, nav
 
-def update_infer_swarm(x, y):
-    plt.plot(x, y, 'b*', linewidth=20)
+def update_infer_swarm(x, y, style):
+    plt.plot(x, y, style, linewidth=20)
 
 def translate_action(action, num_actions):
     # action_word = ['Forward', 'Right', 'Left', 'Sharp Right', 'Sharp Left']
